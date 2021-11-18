@@ -6,11 +6,11 @@ require('dotenv').config();
 const { MongoClient } = require('mongodb');
 const ObjectId = require('mongodb').ObjectId;
 const stripe = require('stripe')(process.env.STRIPE_SECRET);
-const fileUpload = require('express-fileupload');
+const fileUpload = require('express-fileupload')
 
-const port = process.env.PORT || 5000;
+const port = process.env.PORT || 9999;
 
-const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+const serviceAccount = require('./pro-clint-sdk-.json')
 
 admin.initializeApp({
     credential: admin.credential.cert(serviceAccount)
@@ -20,7 +20,7 @@ app.use(cors());
 app.use(express.json());
 app.use(fileUpload());
 
-const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.swu9d.mongodb.net/myFirstDatabase?retryWrites=true&w=majority`;
+const uri =  `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.o6whk.mongodb.net/myFirstDatabase?retryWrites=true&w=majority`;
 
 const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true });
 
@@ -43,10 +43,34 @@ async function verifyToken(req, res, next) {
 async function run() {
     try {
         await client.connect();
-        const database = client.db('doctors_portal');
+        const database = client.db('doctor-pro');
         const appointmentsCollection = database.collection('appointments');
         const usersCollection = database.collection('users');
         const doctorsCollection = database.collection('doctors');
+
+        app.get('/doctors',async(req,res)=>{
+            const coursor = await doctorsCollection.find({})
+            const result = await coursor.toArray();
+            res.json(result)
+        })
+
+        // add Doctor
+        
+        app.post('/doctors',async(req,res)=>{
+            const name = req.body.name;
+            const email = req.body.email;
+            const pic = req.files.image;
+            const picData = pic.data;
+            const encodedPic = picData.toString('base64');
+            const picBuffer = Buffer.from(encodedPic,'base64')
+            const doctor = {
+                name,
+                email,
+                img:picBuffer
+            }
+            const result = await doctorsCollection.insertOne(doctor);
+            res.json(result);
+        })
 
         app.get('/appointments', verifyToken, async (req, res) => {
             const email = req.query.email;
@@ -86,33 +110,6 @@ async function run() {
         });
 
         // doctors api
-        app.get('/doctors', async (req, res) => {
-            const cursor = doctorsCollection.find({});
-            const doctors = await cursor.toArray();
-            res.json(doctors);
-        });
-
-        app.get('/doctors/:id', async (req, res) => {
-            const query = { _id: ObjectId(req.params.id) }
-            const doctor = await doctorsCollection.findOne(query);
-            res.json(doctor);
-        });
-
-        app.post('/doctors', async (req, res) => {
-            const name = req.body.name;
-            const email = req.body.email;
-            const pic = req.files.image;
-            const picData = pic.data;
-            const encodedPic = picData.toString('base64');
-            const imageBuffer = Buffer.from(encodedPic, 'base64');
-            const doctor = {
-                name,
-                email,
-                image: imageBuffer
-            }
-            const result = await doctorsCollection.insertOne(doctor);
-            res.json(result);
-        })
 
         app.get('/users/:email', async (req, res) => {
             const email = req.params.email;
